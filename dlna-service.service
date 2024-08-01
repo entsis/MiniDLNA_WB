@@ -1,0 +1,12 @@
+[Unit]
+Description=MTURHAN DLNA SERVICE
+After=network.target
+
+[Service]
+User=root
+WorkingDirectory=/app/dlna/
+ExecStart=/bin/python /app/dlna/dlna.py
+Restart=always
+
+[Install]
+WantedBy=multi-user.target

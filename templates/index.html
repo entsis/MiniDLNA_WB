@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DLNA File Explorer</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            height: 100vh;
+            margin: 0;
+        }
+        .explorer-container {
+            display: flex;
+            width: 100%;
+        }
+        .explorer {
+            width: 30%;
+            border-right: 1px solid #ccc;
+            padding: 20px;
+            overflow-y: auto;
+        }
+        .file-viewer {
+            width: 70%;
+            padding: 20px;
+            overflow-y: auto;
+        }
+        ul {
+            list-style-type: none;
+            padding-left: 20px;
+        }
+        .folder {
+            font-weight: bold;
+            cursor: pointer;
+        }
+        .file {
+            font-weight: normal;
+        }
+        .file a {
+            text-decoration: none;
+            color: blue;
+        }
+        .file a:hover {
+            text-decoration: underline;
+        }
+        .up-folder {
+            font-weight: bold;
+            cursor: pointer;
+            color: #555;
+        }
+        .up-folder:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+    <div class="explorer-container">
+        <div class="explorer">
+            <h1>DLNA File Explorer</h1>
+            <div id="explorer"></div>
+        </div>
+        <div class="file-viewer" id="fileViewer"></div>
+    </div>
+
+    <script>
+        let parentStack = [];
+
+        browse("http://192.168.1.10:8200/rootDesc.xml", "0");
+
+        function browse(deviceUrl, objectId, parentId = null) {
+            if (parentId !== null) {
+                parentStack.push(parentId);
+            } else if (objectId === "0") {
+                parentStack = [];
+            }
+
+            fetch('/browse', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    device_url: deviceUrl,
+                    ObjectID: objectId
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                const explorerDiv = document.getElementById('explorer');
+                explorerDiv.innerHTML = '';
+
+                if (data.error) {
+                    explorerDiv.textContent = data.error;
+                } else {
+                    const ul = document.createElement('ul');
+
+                    if (parentStack.length > 0) {
+                        const upFolderLi = document.createElement('li');
+                        upFolderLi.className = 'up-folder';
+                        upFolderLi.textContent = 'Up';
+                        upFolderLi.addEventListener('click', function() {
+                            const parentId = parentStack.pop();
+                            browse(deviceUrl, parentId);
+                        });
+                        ul.appendChild(upFolderLi);
+                    }
+
+                    renderExplorer(data, ul, deviceUrl, objectId);
+                    explorerDiv.appendChild(ul);
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+            });
+        }
+
+        function renderExplorer(node, parentElement, deviceUrl, currentId) {
+            const folders = node.children ? node.children.filter(child => child.type === 'folder') : [];
+            const files = node.children ? node.children.filter(child => child.type === 'file') : [];
+
+            [...folders, ...files].forEach(child => {
+                const li = document.createElement('li');
+                li.className = child.type;
+
+                const text = document.createTextNode(child.title);
+                li.appendChild(text);
+
+                if (child.type === 'folder') {
+                    li.addEventListener('click', function() {
+                        browse(deviceUrl, child.id, currentId);
+                    });
+                }
+
+                if (child.type === 'file' && child.path) {
+                    const fileLink = document.createElement('a');
+                    fileLink.href = '#';
+                    fileLink.textContent = ' (view file)';
+                    fileLink.addEventListener('click', function(event) {
+                        event.preventDefault();
+                        displayFile(child.path);
+                    });
+                    li.appendChild(fileLink);
+                }
+
+                parentElement.appendChild(li);
+
+                if (child.children && child.children.length > 0) {
+                    const ul = document.createElement('ul');
+                    renderExplorer(child, ul, deviceUrl, currentId);
+                    li.appendChild(ul);
+                }
+            });
+        }
+
+        function displayFile(filePath) {
+            const fileViewer = document.getElementById('fileViewer');
+            fileViewer.innerHTML = `<iframe src="${filePath}" width="100%" height="100%"></iframe>`;
+        }
+    </script>
+</body>
+</html>
