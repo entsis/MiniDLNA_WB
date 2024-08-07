@@ -7,12 +7,8 @@ sys.path.insert(0, os.path.join(os.getcwd(),''))
 
 app = Flask(__name__, template_folder='templates')
 
-# Enable CORS for a specific domain
-
-# Secret key for session management
 app.secret_key = os.urandom(24)
 
-# User credentials (for simplicity, hardcoded here)
 USERNAME = 'admin'
 PASSWORD = 'password'
 
@@ -26,7 +22,6 @@ def login_required(f):
 
 def fetch_and_parse_dlna_content(device, object_id):
     try:
-        # Find the Content Directory service
         content_dir_service = None
         for service in device.services:
             if 'ContentDirectory' in service.service_id:
@@ -37,7 +32,6 @@ def fetch_and_parse_dlna_content(device, object_id):
             print("Content Directory service not found.")
             return None
 
-        # Send a Browse action to the service to get the directory contents
         result = content_dir_service.Browse(
             ObjectID=object_id,
             BrowseFlag='BrowseDirectChildren',
@@ -47,7 +41,6 @@ def fetch_and_parse_dlna_content(device, object_id):
             SortCriteria=''
         )
 
-        # Parse the XML response content
         root = ET.fromstring(result['Result'])
 
         return root
@@ -94,14 +87,11 @@ def browse():
         device_url = data['device_url']
         object_id = data['ObjectID']
 
-        # Create a device instance with the specified root description URL
         device = upnpclient.Device(device_url)
 
-        # Fetch and parse the content from the DLNA device
         xml_root = fetch_and_parse_dlna_content(device, object_id)
 
         if xml_root is not None:
-            # Convert XML to a nested explorer structure
             explorer_structure = xml_to_explorer_structure(xml_root)
             return jsonify(explorer_structure)
         else:
